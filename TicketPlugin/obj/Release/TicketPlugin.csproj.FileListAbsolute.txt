@@ -3,3 +3,5 @@ C:\Users\Nelson\Desktop\Ticket Plugin\TicketPlugin\obj\Release\ResolveAssemblyRe
 C:\Users\Nelson\Desktop\Ticket Plugin\TicketPlugin\obj\Release\SpectreTicketSystem.dll
 C:\Users\Nelson\Desktop\Ticket Plugin\Bin\Release\TicketPlugin\SpectreTicketSystem.dll
 C:\Users\Nelson\Desktop\Ticket System\Bin\Release\TicketPlugin\SpectreTicketSystem.dll
+C:\Users\Nelson\Desktop\Ticket System\TicketPlugin\obj\Release\ResolveAssemblyReference.cache
+C:\Users\Nelson\Desktop\Ticket System\TicketPlugin\obj\Release\SpectreTicketSystem.dll

@@ -9,3 +9,6 @@ C:\Users\Nelson\Desktop\Ticket System\Bin\Debug\SpectreTicketSystem.dll
 C:\Users\Nelson\Desktop\Ticket System\Bin\Debug\SpectreTicketSystem.pdb
 C:\Users\Nelson\Desktop\Ticket System\Bin\Debug\TicketPlugin\SpectreTicketSystem.dll
 C:\Users\Nelson\Desktop\Ticket System\Bin\Debug\TicketPlugin\SpectreTicketSystem.pdb
+C:\Users\Nelson\Desktop\Ticket System\TicketPlugin\obj\Debug\ResolveAssemblyReference.cache
+C:\Users\Nelson\Desktop\Ticket System\TicketPlugin\obj\Debug\SpectreTicketSystem.dll
+C:\Users\Nelson\Desktop\Ticket System\TicketPlugin\obj\Debug\SpectreTicketSystem.pdb

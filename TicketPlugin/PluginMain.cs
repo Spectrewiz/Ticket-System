@@ -33,7 +33,7 @@ namespace TicketPlugin
 
         public override Version Version
         {
-            get { return new Version(1, 0, 0); }
+            get { return new Version(1, 0, 1); }
         }
 
         public override void Initialize()
@@ -215,26 +215,63 @@ namespace TicketPlugin
 
         public static void TicketList(CommandArgs args)
         {
-            int linenumber = 1;
-            try
+            int pglimit = 5;
+            int linelmt = 1;
+            int crntpage = 0;
+            
+            if (args.Parameters.Count > 0)
             {
-                StreamReader sr = new StreamReader("Tickets.txt");
-                while (sr.Peek() >= 0)
+                if (!int.TryParse(args.Parameters[0], out crntpage) || crntpage < 1)
                 {
-                    args.Player.SendMessage(linenumber + ". " + sr.ReadLine(), Color.Cyan);
-                    linenumber++;
+                    args.Player.SendMessage(string.Format("Invalid page number ({0})", crntpage), Color.Red);
+                    return;
                 }
-                sr.Close();
-                linenumber = 1;
+                crntpage--;
             }
-            catch (Exception e)
+
+            var file = new List<string>(System.IO.File.ReadAllLines("Tickets.txt"));
+
+            if (file.Count < 1)
             {
-                // Let the console know what went wrong, and tell the player that the file could not be read.
-                args.Player.SendMessage("The file could not be read, or it doesnt exist.", Color.Red);
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine(e.Message);
-                Console.ResetColor();
+                args.Player.SendMessage("There are no tickets submitted.", Color.Red);
+                return;
             }
+
+            int pgcount = file.Count / pglimit;
+            if (crntpage > pgcount)
+            {
+                args.Player.SendMessage(string.Format("Page number exceeds pages ({0}/{1})", crntpage + 1, pgcount + 1), Color.Red);
+                return;
+            }
+
+            args.Player.SendMessage(string.Format("Tickets ({0}/{1}):", crntpage + 1, pgcount + 1), Color.DarkCyan);
+
+            var ticketslist = new List<string>();
+            StreamReader sr2 = new StreamReader("Tickets.txt");
+            int i2 = 1;
+            if (crntpage != 0)
+            {
+                while (i2 <= crntpage * pglimit)
+                {
+                    sr2.ReadLine();
+                    i2++;
+                }
+            }
+            for (int i = (crntpage * pglimit); (i < ((crntpage * pglimit) + pglimit)) && i < file.Count; i++)
+            {
+                ticketslist.Add((i + 1) + ". " + sr2.ReadLine());
+            }
+            var lines = ticketslist.ToArray();
+            for (int i = 0; i < lines.Length; i += linelmt)
+            {
+                args.Player.SendMessage(string.Join(", ", lines, i, linelmt), Color.Cyan);;
+            }
+
+            if (crntpage < pgcount)
+            {
+                args.Player.SendMessage(string.Format("Type /ticketlist {0} for more tickets.", (crntpage + 2)), Color.DarkCyan);
+            }
+            sr2.Close();
         }
 
         public static void TicketClear(CommandArgs args)
