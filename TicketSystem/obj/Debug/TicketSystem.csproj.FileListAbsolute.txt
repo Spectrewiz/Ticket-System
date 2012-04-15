@@ -1,0 +1,5 @@
+C:\Users\Nelson\Desktop\Ticket System\Bin\Debug\TicketSystem\TicketSystem.dll
+C:\Users\Nelson\Desktop\Ticket System\Bin\Debug\TicketSystem\TicketSystem.pdb
+C:\Users\Nelson\Desktop\Ticket System\TicketSystem\obj\Debug\ResolveAssemblyReference.cache
+C:\Users\Nelson\Desktop\Ticket System\TicketSystem\obj\Debug\TicketSystem.dll
+C:\Users\Nelson\Desktop\Ticket System\TicketSystem\obj\Debug\TicketSystem.pdb

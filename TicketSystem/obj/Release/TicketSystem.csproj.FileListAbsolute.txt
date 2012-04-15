@@ -1,0 +1,3 @@
+C:\Users\Nelson\Desktop\Ticket System\Bin\Release\TicketSystem\TicketSystem.dll
+C:\Users\Nelson\Desktop\Ticket System\TicketSystem\obj\Release\ResolveAssemblyReference.cache
+C:\Users\Nelson\Desktop\Ticket System\TicketSystem\obj\Release\TicketSystem.dll
