@@ -27,10 +27,11 @@ namespace TicketSystem
             {
                 if (t.getName().ToLower() == name.ToLower())
                 {
-                    if (t.getResponse() != null)
+                    if (t.getResponse() == null)
                     {
-                        Tickets.Remove(t);
+                        continue;
                     }
+                    Tickets.Remove(t);
                 }
             }
         }
