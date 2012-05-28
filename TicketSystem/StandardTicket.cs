@@ -16,13 +16,15 @@ namespace TicketSystem
         public string Ticket;
         public string Response;
         public string Time;
+        public string Tag;
 
-        public StandardTicket(string Name, string Ticket, string Response, string Time)
+        public StandardTicket(string Name, string Ticket, string Response, string Time, string Tag)
         {
             this.Name = Name;
             this.Ticket = Ticket;
             this.Response = Response;
             this.Time = Time;
+            this.Tag = Tag;
         }
 
         public string getName()
@@ -43,6 +45,16 @@ namespace TicketSystem
         public string getTime()
         {
             return Time;
+        }
+
+        public string getTag()
+        {
+            return Tag;
+        }
+
+        public void setTag(string tag)
+        {
+            Tag = tag;
         }
 
         public void setResponse(string response)
