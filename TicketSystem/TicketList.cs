@@ -64,5 +64,18 @@ namespace TicketSystem
             }
             return i;
         }
+
+        public int tagCount(string tag)
+        {
+            int i = 0;
+            foreach (StandardTicket t in Tickets)
+            {
+                if (t.getTag().ToLower().Trim() == tag.ToLower().Trim())
+                {
+                    i++;
+                }
+            }
+            return i;
+        }
     }
 }

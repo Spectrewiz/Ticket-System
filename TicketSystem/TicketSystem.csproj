@@ -69,6 +69,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Config.cs" />
     <Compile Include="Player.cs" />
     <Compile Include="PluginMain.cs" />
     <Compile Include="TicketList.cs" />

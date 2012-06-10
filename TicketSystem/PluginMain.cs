@@ -28,6 +28,8 @@ namespace TicketSystem
         public static string tagpath = Path.Combine(TShock.SavePath, @"TicketSystem\Tags.txt");
         public static Color bluebase = new Color(30, 144, 255);
         public static Color bluesecondarybase = new Color(135, 206, 255);
+        public static Config Config { get; set; }
+        internal static string ConfigPath { get { return Path.Combine(TShock.SavePath, @"TicketSystem\Config.json"); } }
         public override string Name
         {
             get { return "Ticket System"; }
@@ -45,7 +47,7 @@ namespace TicketSystem
 
         public override Version Version
         {
-            get { return new Version(1, 1, 3); }
+            get { return new Version(1, 2, 0); }
         }
 
         public override void Initialize()
@@ -76,14 +78,16 @@ namespace TicketSystem
 
         public void OnInitialize()
         {
-            Commands.ChatCommands.Add(new Command(Hlpme, "ticket", "hlpme"));
+            Commands.ChatCommands.Add(new Command(Ticket, "ticket", "hlpme"));
             Commands.ChatCommands.Add(new Command("TicketList", TicketListCommmand, "ticketlist", "ticlist"));
             Commands.ChatCommands.Add(new Command("TicketClear", TicketClear, "ticketclear", "ticketsclear", "ticclear", "ticsclear"));
             Commands.ChatCommands.Add(new Command("TicketBan", TicBan, "ticketban", "ticban"));
+            Commands.ChatCommands.Add(new Command("TicketReload", Reload, "ticketreload", "ticreload"));
 
             save = Path.Combine(TShock.SavePath, @"TicketSystem\Tickets.json");
             banned = Path.Combine(TShock.SavePath, @"TicketSystem\Banned.txt");
             TicketReader Reader = new TicketReader();
+            Config = new Config();
 
             if (File.Exists(save))
             {
@@ -96,6 +100,21 @@ namespace TicketSystem
                     else
                         Console.WriteLine("There are no tickets.");
                     Console.ResetColor();
+                    try
+                    {
+                        if (File.Exists(ConfigPath))
+                            Config = Config.Read(ConfigPath);
+                        Config.Write(ConfigPath);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine("Error in TicketSystem Config.json file! Check log for more details.");
+                        Console.WriteLine(e.Message);
+                        Console.ForegroundColor = ConsoleColor.Gray;
+                        Log.Error("Config Exception");
+                        Log.Error(e.ToString());
+                    }
                 }
                 catch (Exception e)
                 {
@@ -103,9 +122,10 @@ namespace TicketSystem
                     Console.WriteLine("Error in Tickets.json file! Check log for more details.");
                     Console.WriteLine(e.Message);
                     Console.ResetColor();
-                    Log.Error("--------- Config Exception in TicketSystem Config file (Tickets.json) ---------");
+                    Log.Error("------------- Config Exception in Ticket List file (Tickets.json) -------------");
                     Log.Error(e.Message);
                     Log.Error("---------------------------------- Error End ----------------------------------");
+                    Console.ForegroundColor = ConsoleColor.Red;
                 }
             }
             else
@@ -121,7 +141,8 @@ namespace TicketSystem
                 }
                 using (StreamWriter writer = new StreamWriter(Path.Combine(TShock.SavePath, @"TicketSystem\loginmsg.txt"), true))
                 {
-                    writer.WriteLine("To write a complaint, use /ticket <Message>");
+                    writer.WriteLine("To write a complaint, use \"/ticket [-t:<tag>] <Message>\"");
+                    writer.WriteLine("NOTE: Tags are optional. To view a list of tags, use \"/ticket tags\"");
                 }
                 Console.ForegroundColor = ConsoleColor.Yellow;
                 Console.WriteLine("There are no tickets.");
@@ -164,7 +185,7 @@ namespace TicketSystem
             {
                 int i = ticketlist.responseCount(TShock.Players[who].Name);
                 int x = ticketlist.ticketCount(TShock.Players[who].Name);
-                if (i != 0)
+                if (i >= 1)
                 {
                     TShock.Players[who].SendMessage("--- Responses for Tickets (" + i + "/" + x + ") ---", bluebase);
                     lock (ticketlist.Tickets)
@@ -175,7 +196,7 @@ namespace TicketSystem
                             {
                                 if (t.getResponse() != null)
                                 {
-                                    TShock.Players[who].SendMessage("(" + t.getTicket().Trim() + "): " + t.getResponse(), bluesecondarybase);
+                                    TShock.Players[who].SendMessage("[" + t.getTag().Trim() + "] " + t.getTicket().Trim() + " | " + t.getResponse(), bluesecondarybase);
                                 }
                             }
                         }
@@ -240,7 +261,7 @@ namespace TicketSystem
         #endregion
 
         #region Commands and whatnot
-        public static void Hlpme(CommandArgs args)
+        public static void Ticket(CommandArgs args)
         {
             var FindMe = Player.GetPlayerByName(args.Player.Name);
             if (FindMe.GetTicState() == Player.CanSubmitTickets.no)
@@ -271,10 +292,7 @@ namespace TicketSystem
                 {
                     Log.Error(e.Message);
                 }
-                File.Delete(save);
-                TextWriter tw = new StreamWriter(save, true);
-                tw.Write(JsonConvert.SerializeObject(ticketlist, Formatting.Indented));
-                tw.Close();
+                UpdateTicketsInJSON(save);
                 args.Player.SendMessage("Your responses have been cleared!", bluebase);
             }
             else if (args.Parameters[0].ToLower() == "responses")
@@ -303,6 +321,17 @@ namespace TicketSystem
                     }
                 }
             }
+            else if ((args.Parameters[0].ToLower() == "tags") || (args.Parameters[0].ToLower() == "tag") || (args.Parameters[0].ToLower() == "taglist"))
+            {
+                string[] officialtags = File.ReadAllText(tagpath).Split('\n');
+                args.Player.SendMessage("Tags:", bluebase);
+                foreach (string officialtag in officialtags)
+                {
+                    if (officialtag.StartsWith(" ") || officialtag == null || officialtag == "")
+                        continue;
+                    args.Player.SendMessage(officialtag, bluesecondarybase);
+                }
+            }
             else if (args.Parameters[0].ToLower().StartsWith("-tag:") || args.Parameters[0].ToLower().StartsWith("-t:"))
             {
                 string tag = args.Parameters[0].ToLower().Split(':')[1];
@@ -312,7 +341,12 @@ namespace TicketSystem
                     officialtags[i] = officialtags[i].Trim().ToLower();
                 }
                 if (!((IList<string>)officialtags).Contains(tag.Trim()))
-                    tag = "default";
+                    tag = officialtags[0];
+                if ((tag == "") || (tag == null))
+                {
+                    if (!((IList<string>)officialtags).Contains(args.Parameters[1].ToLower().Trim()))
+                        tag = officialtags[0];
+                }
                 try
                 {
                     string text = "";
@@ -326,20 +360,23 @@ namespace TicketSystem
 
                     ticketlist.AddItem(new StandardTicket(args.Player.Name, text, null, DateTime.Now.ToString(), tag));
 
-                    File.Delete(save);
-                    TextWriter tw = new StreamWriter(save, true);
-                    tw.Write(JsonConvert.SerializeObject(ticketlist, Formatting.Indented));
-                    tw.Close();
+                    UpdateTicketsInJSON(save);
 
                     args.Player.SendMessage("Your Ticket has been sent!", bluebase);
-                    args.Player.SendMessage("Note: It has been tagged as " + tag + ". If that tag doesnt exist, it will be marked as default.  ", bluesecondarybase);
+                    args.Player.SendMessage("Note: It has been tagged as " + tag + ". Use \"/ticket tags\" to view a list of valid tags.", bluesecondarybase);
                     foreach (Player player in TicketSystem.Players)
                     {
                         if (player.TSPlayer.Group.HasPermission("TicketList"))
                         {
-                            player.TSPlayer.SendMessage(string.Format("{0} just submitted a ticket: {1}", args.Player.Name, text, tag), bluebase);
+                            player.TSPlayer.SendMessage(string.Format("{0} just submitted a ticket: {1}", args.Player.Name, text), bluebase);
                         }
                     }
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.Write(args.Player.Name + " just submitted a ticket: ", bluebase);
+                    Console.ResetColor();
+                    Console.WriteLine(text);
+                    if (Config.beepOnTicketSubmission)
+                        Console.Beep(637, 100);
                 }
                 catch (Exception e)
                 {
@@ -354,18 +391,20 @@ namespace TicketSystem
             {
                 try
                 {
+                    string[] officialtags = File.ReadAllText(tagpath).Split('\n');
+                    for (int i = 0; i < officialtags.Length; i++)
+                    {
+                        officialtags[i] = officialtags[i].Trim().ToLower();
+                    }
                     string text = "";
                     foreach (string word in args.Parameters)
                     {
                         text = text + word + " ";
                     }
 
-                    ticketlist.AddItem(new StandardTicket(args.Player.Name, text, null, DateTime.Now.ToString(), "default"));
+                    ticketlist.AddItem(new StandardTicket(args.Player.Name, text, null, DateTime.Now.ToString(), officialtags[0]));
 
-                    File.Delete(save);
-                    TextWriter tw = new StreamWriter(save, true);
-                    tw.Write(JsonConvert.SerializeObject(ticketlist, Formatting.Indented));
-                    tw.Close();
+                    UpdateTicketsInJSON(save);
 
                     args.Player.SendMessage("Your Ticket has been sent!", bluebase);
                     foreach (Player player in TicketSystem.Players)
@@ -375,6 +414,12 @@ namespace TicketSystem
                             player.TSPlayer.SendMessage(string.Format("{0} just submitted a ticket: {1}", args.Player.Name, text), bluebase);
                         }
                     }
+                    Console.ForegroundColor = ConsoleColor.Blue;
+                    Console.Write(args.Player.Name + " just submitted a ticket: ", bluebase);
+                    Console.ResetColor();
+                    Console.WriteLine(text);
+                    if (Config.beepOnTicketSubmission)
+                        Console.Beep(637, 100);
                 }
                 catch (Exception e)
                 {
@@ -394,15 +439,17 @@ namespace TicketSystem
             int crntpage = 0;
             string[] officaltags = File.ReadAllText(tagpath).Split('\n');
             string tag = "All";
+            string search = "All";
 
             if (args.Parameters.Count > 0)
             {
                 if (args.Parameters[0].ToLower() == "help")
                 {
-                    args.Player.SendMessage("Syntax: /ticketlist <help/pg#>", bluebase);
+                    args.Player.SendMessage("Syntax: /ticketlist <help/-t:<tag>/tags/-s:<keyword>> [pg#]", bluebase);
                     args.Player.SendMessage("- /ticketlist <help>: Shows this page.", bluesecondarybase);
-                    args.Player.SendMessage("- /ticketlist <tag/all> <pg#>: Shows the tickets on the specified page.", bluesecondarybase);
+                    args.Player.SendMessage("- /ticketlist <tag/all> <pg#>: Shows the tickets on the specified page/tag.", bluesecondarybase);
                     args.Player.SendMessage("- /ticketlist <tags>: Shows all the tags and a number of how many tickets are submitted for each tag.", bluesecondarybase);
+                    args.Player.SendMessage("- /ticketlist <-s:<keyword>> <pg#>: Shows all tickets that contain the specified keyword.", bluesecondarybase);
                     args.Player.SendMessage("NOTE: If the ticket has been responded to, but not cleared by the player yet, you will see a \"{RESPONSE SENT}\" message next to it.", bluebase);
                 }
                 else if (args.Parameters[0].ToLower() == "tags")
@@ -420,14 +467,21 @@ namespace TicketSystem
                         }
                         args.Player.SendMessage(string.Format("{0}: {1}", officaltag, i), bluesecondarybase);
                     }
-                    return;
                 }
                 else if (!int.TryParse(args.Parameters[0], out crntpage) || crntpage < 1)
                 {
-                    if (!int.TryParse(args.Parameters[1], out crntpage) || crntpage < 1)
+                    if (args.Parameters.Count > 1)
                     {
-                        args.Player.SendMessage(string.Format("Invalid page number ({0})", crntpage), Color.Red);
-                        return;
+                        if (!int.TryParse(args.Parameters[1], out crntpage) || crntpage < 1)
+                        {
+                            args.Player.SendMessage(string.Format("Invalid page number ({0})", crntpage), Color.Red);
+                            return;
+                        }
+                    }
+                    else { crntpage = 1; }
+                    if (args.Parameters[0].ToLower().StartsWith("-s:"))
+                    {
+                        search = args.Parameters[0].ToLower().Split(':')[1].Trim();
                     }
                     else if (args.Parameters[0].ToLower() != "all")
                     {
@@ -443,8 +497,8 @@ namespace TicketSystem
                     {
                         args.Player.SendMessage("Could not find page or tag labeled " + args.Parameters[0], Color.Red);
                     }
-                    crntpage--;
                 }
+                crntpage--;
             }
 
             if (ticketlist.Tickets.Count < 1)
@@ -460,13 +514,51 @@ namespace TicketSystem
                 return;
             }
 
-            if (tag != "All")
-                args.Player.SendMessage(string.Format("Tickets with tag {0} ({1}/{2}):", tag, crntpage + 1, pgcount + 1), bluebase);
+            if (ticketlist.Tickets.Count == pgcount * pglimit)
+            {
+                if (tag != "All")
+                    args.Player.SendMessage(string.Format("Tickets with tag {0} ({1}/{2}):", tag, crntpage + 1, pgcount), bluebase);
+                else if (search != "All")
+                    args.Player.SendMessage(string.Format("Tickets with keyword {0} ({1}/{2}):", search, crntpage + 1, pgcount), bluebase);
+                else
+                    args.Player.SendMessage(string.Format("All Tickets ({0}/{1}):", crntpage + 1, pgcount), bluebase);
+            }
             else
-                args.Player.SendMessage(string.Format("All Tickets ({0}/{1}):", crntpage + 1, pgcount + 1), bluebase);
+            {
+                if (tag != "All")
+                    args.Player.SendMessage(string.Format("Tickets with tag {0} ({1}/{2}):", tag, crntpage + 1, pgcount + 1), bluebase);
+                else if (search != "All")
+                    args.Player.SendMessage(string.Format("Tickets with keyword {0} ({1}/{2}):", search, crntpage + 1, pgcount + 1), bluebase);
+                else
+                    args.Player.SendMessage(string.Format("All Tickets ({0}/{1}):", crntpage + 1, pgcount + 1), bluebase);
+            }
 
             var ticketslist = new List<string>();
-            if (tag == "All")
+            if (tag != "All")
+            {
+                for (int i = (crntpage * pglimit); (i < ((crntpage * pglimit) + pglimit)) && i < ticketlist.Tickets.Count; i++)
+                {
+                    if ((ticketlist.Tickets[i].getResponse() == null) && (ticketlist.Tickets[i].getTag().Trim().ToLower() == tag.Trim().ToLower()))
+                    {
+                        ticketslist.Add((i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
+                    }
+                    else if ((ticketlist.Tickets[i].getResponse() != null) && (ticketlist.Tickets[i].getTag().Trim().ToLower() == tag.Trim().ToLower()))
+                        ticketslist.Add("{RESPONSE SENT} | " + (i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
+                }
+            }
+            else if (search != "All")
+            {
+                for (int i = (crntpage * pglimit); (i < ((crntpage * pglimit) + pglimit)) && i < ticketlist.Tickets.Count; i++)
+                {
+                    if ((ticketlist.Tickets[i].getResponse() == null) && (ticketlist.Tickets[i].getTicket().ToLower().Contains(search.Trim())))
+                    {
+                        ticketslist.Add((i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
+                    }
+                    else if ((ticketlist.Tickets[i].getResponse() != null) && (ticketlist.Tickets[i].getTicket().ToLower().Contains(search.Trim())))
+                        ticketslist.Add("{RESPONSE SENT} | " + (i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
+                }
+            }
+            else
             {
                 for (int i = (crntpage * pglimit); (i < ((crntpage * pglimit) + pglimit)) && i < ticketlist.Tickets.Count; i++)
                 {
@@ -478,30 +570,21 @@ namespace TicketSystem
                         ticketslist.Add("{RESPONSE SENT} | [" + ticketlist.Tickets[i].getTag() + "] " + (i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
                 }
             }
-            else
-            {
-                for (int i = (crntpage * pglimit); (i < ((crntpage * pglimit) + pglimit)) && i < ticketlist.Tickets.Count; i++)
-                {
-                    if ((ticketlist.Tickets[i].getResponse() == null) && (ticketlist.Tickets[i].getTag().Trim().ToLower() == tag.Trim().ToLower()))
-                    {
-                        ticketslist.Add((i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
-                    }
-                    else if (ticketlist.Tickets[i].getTag().Trim().ToLower() == tag.Trim().ToLower())
-                        ticketslist.Add("{RESPONSE SENT} | " + (i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
-                }
-            }
+            
             var lines = ticketslist.ToArray();
             for (int i = 0; i < lines.Length; i += linelmt)
             {
                 args.Player.SendMessage(string.Join(", ", lines, i, Math.Min(lines.Length - i, linelmt)), bluesecondarybase);
             }
 
-            if (crntpage < pgcount)
+            if ((crntpage < pgcount) && (((crntpage * pglimit) + pglimit) < ticketlist.Tickets.Count))
             {
                 if (tag != "All")
                     args.Player.SendMessage(string.Format("Type \"/ticketlist {0} {1}\" for more tickets with the tag {0}.", tag, (crntpage + 2)), bluebase);
+                else if (search != "All")
+                    args.Player.SendMessage(string.Format("Type \"/ticketlist {0} {1}\" for more tickets with the keyword {0}.", args.Parameters[0], crntpage + 2), bluebase);
                 else
-                    args.Player.SendMessage(string.Format("Type \"/ticketlist all {0}\" for more tickets.", (crntpage + 2)), bluebase);
+                    args.Player.SendMessage(string.Format("Type \"/ticketlist {0}\" for more tickets.", (crntpage + 2)), bluebase);
             }
         }
 
@@ -511,7 +594,9 @@ namespace TicketSystem
             {
                 args.Player.SendMessage("Syntax: /ticketclear <all/id/tag/response/help>", bluebase);
                 args.Player.SendMessage("- /ticketclear <all>: Removes all the tickets", bluesecondarybase);
-                args.Player.SendMessage("- /ticketclear <id> <id>: Removes one ticket ID based on the IDs listed with /ticketlist", bluesecondarybase);
+                args.Player.SendMessage("- /ticketclear <id> <idlist>: Removes one ticket ID based on the IDs listed with \"/ticketlist\" or if a list of ids is specified it will remove all the tickets ticket ids in that list.", bluesecondarybase);
+                args.Player.SendMessage("EXAMPLE: \"/ticketclear id 1-5,7,10,12-15\" | Note that there is no use of spaces, and the ids must be in order from least to greatest, otherwise errors will occur.", bluesecondarybase);
+                args.Player.SendMessage("A dash clears all tickets inbetween and including the 2 tickets specified.", bluesecondarybase);
                 args.Player.SendMessage("- /ticketclear <tag> <tag>: Clears all tickets in the specified tag", bluesecondarybase);
                 args.Player.SendMessage("- /ticketclear <response/r> <id> <message>: When the player who submitted that ticket logs in, he will recieve the message and the ticket will automatically be cleared.", bluesecondarybase);
                 args.Player.SendMessage("Note: /ticketclear can be shortened to /ticclear", bluebase);
@@ -542,35 +627,94 @@ namespace TicketSystem
                         }
                         break;
                     case "id":
-                        if (args.Parameters.Count > 1)
+                        if (args.Parameters.Count == 2)
                         {
+                            string[] tickets = args.Parameters[1].Split(',');
+                            for (int i = 0; i < tickets.Length; i++)
+                            {
+                                tickets[i] = tickets[i].ToLower().Trim();
+                            }
+                            List<string> ticketerrors = new List<string>();
+                            List<string> ticketcompletions = new List<string>();
                             try
                             {
-                                int lineToDelete = (Convert.ToInt32(args.Parameters[1]) - 1);
-                                ticketlist.Tickets.RemoveAt(lineToDelete);
-                                File.Delete(save);
-                                TextWriter tw = new StreamWriter(save, true);
-                                tw.Write(JsonConvert.SerializeObject(ticketlist, Formatting.Indented));
-                                tw.Close();
-                                args.Player.SendMessage(string.Format("Ticket ID {0} was cleared!", args.Parameters[1]), bluebase);
+                                for (int i = tickets.Length - 1; i >= 0; i--)
+                                {
+                                    if (!tickets[i].Contains("-"))
+                                    {
+                                        try
+                                        {
+                                            if (Convert.ToInt32(tickets[i]) <= 0)
+                                            {
+                                                ticketerrors.Add(tickets[i] + " is not a valid ticket id.");
+                                            }
+                                            if (Convert.ToInt32(tickets[i]) > ticketlist.Tickets.Count)
+                                            {
+                                                ticketerrors.Add(tickets[i] + " is greater than the last ticket id (" + ticketlist.Tickets.Count + ").");
+                                            }
+                                            else 
+                                            { 
+                                                lock (ticketlist.Tickets) 
+                                                    ticketlist.Tickets.RemoveAt(Convert.ToInt32(tickets[i]) - 1);
+                                                ticketcompletions.Add(tickets[i]);
+                                            }
+                                        }
+                                        catch (FormatException)
+                                        {
+                                            ticketerrors.Add(tickets[i] + " is not in the correct format.");
+                                        }
+                                    }
+                                    else
+                                    {
+                                        try
+                                        {
+                                            if ((Convert.ToInt32(tickets[i].Split('-')[1]) <= 0) || (Convert.ToInt32(tickets[i].Split('-')[0]) <= 0))
+                                            {
+                                                ticketerrors.Add(tickets[i] + " is not a valid id list.");
+                                            }
+                                            if ((Convert.ToInt32(tickets[i].Split('-')[1]) > ticketlist.Tickets.Count) || (Convert.ToInt32(tickets[i].Split('-')[0]) > ticketlist.Tickets.Count))
+                                            {
+                                                ticketerrors.Add(tickets[i] + " has an id that is greater than the last ticket id (" + ticketlist.Tickets.Count + ").");
+                                            }
+                                            else
+                                            {
+                                                for (int i2 = Convert.ToInt32(tickets[i].Split('-')[1]) - 1; i2 >= Convert.ToInt32(tickets[i].Split('-')[0]) - 1; i2--)
+                                                {
+                                                    lock (ticketlist.Tickets)
+                                                        ticketlist.Tickets.RemoveAt(i2);
+                                                    if (i2 == Convert.ToInt32(tickets[i].Split('-')[0]) - 1)
+                                                        ticketcompletions.Add(tickets[i]);
+                                                }
+                                            }
+                                        }
+                                        catch (FormatException)
+                                        {
+                                            ticketerrors.Add(tickets[i] + " is not in the correct format.");
+                                        }
+                                    }
+                                }
+                                args.Player.SendMessage("ID(s):" + string.Join(", ", ticketcompletions) + " have been cleared successfully.", bluebase);
+                                if (ticketerrors.Count > 0)
+                                {
+                                    args.Player.SendMessage("Errors: " + string.Join(", ", ticketerrors) + ".", Color.Red);
+                                }
+                                UpdateTicketsInJSON(save);
                                 Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine(string.Format("{0} has cleared ticket ID: {1}", args.Player.Name, args.Parameters[1]));
+                                Console.Write(args.Player.Name + " has cleared ticket ID(s): ");
                                 Console.ResetColor();
-                                Log.Info(string.Format("{0} has cleared ticket ID: {1}", args.Player.Name, args.Parameters[1]));
+                                Console.WriteLine(string.Join(", ", ticketcompletions));
+                                Log.Info(string.Format("{0} has cleared ticket ID(s): {1}", args.Player.Name, string.Join(", ", ticketcompletions)));
                             }
                             catch (Exception e)
                             {
-                                args.Player.SendMessage("Not a valid ID.", Color.Red);
+                                args.Player.SendMessage("Error, check logs for more details.", Color.Red);
                                 Console.ForegroundColor = ConsoleColor.Red;
                                 Console.WriteLine(e.Message);
                                 Console.ResetColor();
                                 Log.Error(e.Message);
                             }
                         }
-                        else
-                        {
-                            args.Player.SendMessage("You have to state a ticket ID! Syntax: /ticclear id <id>", Color.Red);
-                        }
+                        else { args.Player.SendMessage("Syntax: /ticketclear <idlist>", Color.Red); }
                         break;
                     case "tag":
                         lock (ticketlist.Tickets)
@@ -594,10 +738,7 @@ namespace TicketSystem
                                         ticketlist.Tickets.Remove(ticketlist.Tickets[i]);
                                     }
                                 }
-                                File.Delete(save);
-                                TextWriter tw = new StreamWriter(save, true);
-                                tw.Write(JsonConvert.SerializeObject(ticketlist, Formatting.Indented));
-                                tw.Close();
+                                UpdateTicketsInJSON(save);
                             }
                             catch (Exception e)
                             {
@@ -606,9 +747,11 @@ namespace TicketSystem
                             }
                             finally
                             {
-                                args.Player.SendMessage("All tickets with the tag \"" + args.Parameters[1] + "\" cleared.", bluebase); Console.ForegroundColor = ConsoleColor.Red;
-                                Console.WriteLine(string.Format("{0} has cleared all tickets with tag: {1}", args.Player.Name, args.Parameters[1]));
+                                args.Player.SendMessage("All tickets with the tag \"" + args.Parameters[1] + "\" cleared.", bluebase); 
+                                Console.ForegroundColor = ConsoleColor.Red;
+                                Console.Write(args.Player.Name + " has cleared all tickets with tag: ");
                                 Console.ResetColor();
+                                Console.WriteLine(args.Parameters[1]);
                                 Log.Info(string.Format("{0} has cleared all tickets with tag: {1}", args.Player.Name, args.Parameters[1]));
                             }
                         }
@@ -636,20 +779,14 @@ namespace TicketSystem
                                 listedplayer.TSPlayer.SendMessage("Your ticket (" + ticket.Trim() + ") has been responded to: ", bluebase);
                                 listedplayer.TSPlayer.SendMessage(respond.Trim(), bluesecondarybase);
                                 ticketlist.Tickets.RemoveAt(lineToRespond - 1);
-                                File.Delete(save);
-                                TextWriter tw = new StreamWriter(save, true);
-                                tw.Write(JsonConvert.SerializeObject(ticketlist, Formatting.Indented));
-                                tw.Close();
+                                UpdateTicketsInJSON(save);
                             }
                             catch
                             {
                                 try
                                 {
                                     ticketlist.Tickets[lineToRespond - 1].setResponse(respond);
-                                    File.Delete(save);
-                                    TextWriter tw = new StreamWriter(save, true);
-                                    tw.Write(JsonConvert.SerializeObject(ticketlist, Formatting.Indented));
-                                    tw.Close();
+                                    UpdateTicketsInJSON(save);
                                 }
                                 catch (Exception e)
                                 {
@@ -666,14 +803,17 @@ namespace TicketSystem
                     case "r":
                         goto case "response";
                     case "help":
-                        args.Player.SendMessage("Syntax: /ticketclear <all/id/response/help>", bluebase);
+                        args.Player.SendMessage("Syntax: /ticketclear <all/id/tag/response/help>", bluebase);
                         args.Player.SendMessage("- /ticketclear <all>: Removes all the tickets", bluesecondarybase);
-                        args.Player.SendMessage("- /ticketclear <id> <id>: Removes one ticket ID based on the IDs listed with /ticketlist", bluesecondarybase);
+                        args.Player.SendMessage("- /ticketclear <id> <idlist>: Removes one ticket ID based on the IDs listed with \"/ticketlist\" or if a list of ids is specified it will remove all the tickets ticket ids in that list.", bluesecondarybase);
+                        args.Player.SendMessage("EXAMPLE: \"/ticketclear id 1-5,7,10,12-15\" | Note that there is no use of spaces, and the ids must be in order from least to greatest, otherwise errors will occur.", bluesecondarybase);
+                        args.Player.SendMessage("A dash clears all tickets inbetween and including the 2 tickets specified.", bluesecondarybase);
+                        args.Player.SendMessage("- /ticketclear <tag> <tag>: Clears all tickets in the specified tag", bluesecondarybase);
                         args.Player.SendMessage("- /ticketclear <response/r> <id> <message>: When the player who submitted that ticket logs in, he will recieve the message and the ticket will automatically be cleared.", bluesecondarybase);
                         args.Player.SendMessage("Note: /ticketclear can be shortened to /ticclear", bluebase);
                         break;
                     default:
-                        args.Player.SendMessage("Syntax: /ticketclear <all/id/response>", Color.Red);
+                        args.Player.SendMessage("Syntax: /ticketclear <all/id/tag/response/help>", Color.Red);
                         break;
                 }
             }
@@ -789,8 +929,9 @@ namespace TicketSystem
                                     {
                                         args.Player.SendMessage(string.Format("You have given back the privileges of submitting tickets to player: {0}. This will take affect when they next log in.", args.Parameters[1]), bluebase);
                                         Console.ForegroundColor = ConsoleColor.Red;
-                                        Console.WriteLine(string.Format("{0} has unbanned player: {1}", args.Player.Name, args.Parameters[1]));
+                                        Console.Write(args.Player.Name + " has unbanned player: ");
                                         Console.ResetColor();
+                                        Console.WriteLine(args.Parameters[1]);
                                         Log.Info(string.Format("{0} has unbanned player: {1}", args.Player.Name, args.Parameters[1]));
                                         i = 0;
                                     }
@@ -802,8 +943,9 @@ namespace TicketSystem
                                     File.WriteAllLines(banned, file.ToArray());
                                     args.Player.SendMessage(string.Format("You have given back the privileges of submitting tickets to player ID: {0}. This will take affect when they next log in.", args.Parameters[1]), bluebase);
                                     Console.ForegroundColor = ConsoleColor.Red;
-                                    Console.WriteLine(string.Format("{0} has unbanned player ID: {1}", args.Player.Name, args.Parameters[1]));
+                                    Console.Write(args.Player.Name + " has unbanned player ID: ");
                                     Console.ResetColor();
+                                    Console.WriteLine(args.Parameters[1]);
                                     Log.Info(string.Format("{0} has unbanned player ID: {1}", args.Player.Name, args.Parameters[1]));
                                 }
                             }
@@ -851,6 +993,43 @@ namespace TicketSystem
                 }
             }
         }
+
+        public static void Reload(CommandArgs args)
+        {
+            TicketReader Reader = new TicketReader();
+            try
+            {
+                ticketlist = Reader.readFile(save);
+                Console.ForegroundColor = ConsoleColor.Yellow;
+                Console.WriteLine("Ticket System being reloaded...");
+                args.Player.SendMessage("Ticket System being reloaded...", Color.Yellow);
+                Log.Info("Ticket System Reloading...");
+                if (ticketlist.Tickets.Count != 0)
+                {
+                    Console.WriteLine(ticketlist.Tickets.Count + " tickets have been reloaded.");
+                    args.Player.SendMessage(ticketlist.Tickets.Count + " tickets have been reloaded.", Color.Yellow);
+                }
+                else
+                {
+                    Console.WriteLine("There are no tickets.");
+                    args.Player.SendMessage("There are no tickets.", Color.Yellow);
+                }
+                Console.ResetColor();
+                args.Player.SendMessage("Ticket System reloaded.", Color.Yellow);
+                Log.Info("Ticket System Reloaded.");
+            }
+            catch (Exception e)
+            {
+                Console.ForegroundColor = ConsoleColor.Red;
+                Console.WriteLine("Error in Tickets.json file! Check log for more details.");
+                args.Player.SendMessage("Error in Tickets.json file! Check log for more details.", Color.Red);
+                Console.WriteLine(e.Message);
+                Console.ResetColor();
+                Log.Error("--------- Config Exception in TicketSystem Config file (Tickets.json) ---------");
+                Log.Error(e.Message);
+                Log.Error("---------------------------------- Error End ----------------------------------");
+            }
+        }
         #endregion
 
         #region Extra stuff
@@ -872,13 +1051,21 @@ namespace TicketSystem
             if (!Version.TryParse(readme[0], out version)) return false;
             if (Version.CompareTo(version) >= 0) return false;
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine("New Ticket System version: " + readme[0].Trim());
-            Console.WriteLine("Download here: " + download[1].Trim());
-            Console.ResetColor();
+            Console.Write("New Ticket System version: "); Console.ResetColor(); Console.WriteLine(readme[0].Trim());
+            Console.ForegroundColor = ConsoleColor.Yellow;
+            Console.Write("Download here: "); Console.ResetColor(); Console.WriteLine(download[1].Trim());
             Log.Info(string.Format("NEW VERSION: {0}  |  Download here: {1}", readme[0].Trim(), download[1].Trim()));
             downloadFromUpdate = download[1].Trim();
             versionFromUpdate = readme[0].Trim();
             return true;
+        }
+
+        public static void UpdateTicketsInJSON(string savepath)
+        {
+            File.Delete(savepath);
+            TextWriter tw = new StreamWriter(savepath, true);
+            tw.Write(JsonConvert.SerializeObject(ticketlist, Formatting.Indented));
+            tw.Close();
         }
         #endregion
     }
