@@ -434,9 +434,8 @@ namespace TicketSystem
 
         public static void TicketListCommmand(CommandArgs args)
         {
-            int pglimit = 5;
-            int linelmt = 1;
-            int crntpage = 0;
+            int pagelimit = 5;
+            int currentpage = 0;
             string[] officaltags = File.ReadAllText(tagpath).Split('\n');
             string tag = "All";
             string search = "All";
@@ -468,17 +467,17 @@ namespace TicketSystem
                         args.Player.SendMessage(string.Format("{0}: {1}", officaltag, i), bluesecondarybase);
                     }
                 }
-                else if (!int.TryParse(args.Parameters[0], out crntpage) || crntpage < 1)
+                else if (!int.TryParse(args.Parameters[0], out currentpage) || currentpage < 1)
                 {
                     if (args.Parameters.Count > 1)
                     {
-                        if (!int.TryParse(args.Parameters[1], out crntpage) || crntpage < 1)
+                        if (!int.TryParse(args.Parameters[1], out currentpage) || currentpage < 1)
                         {
-                            args.Player.SendMessage(string.Format("Invalid page number ({0})", crntpage), Color.Red);
+                            args.Player.SendMessage(string.Format("Invalid page number ({0})", currentpage), Color.Red);
                             return;
                         }
                     }
-                    else { crntpage = 1; }
+                    else { currentpage = 1; }
                     if (args.Parameters[0].ToLower().StartsWith("-s:"))
                     {
                         search = args.Parameters[0].ToLower().Split(':')[1].Trim();
@@ -498,7 +497,7 @@ namespace TicketSystem
                         args.Player.SendMessage("Could not find page or tag labeled " + args.Parameters[0], Color.Red);
                     }
                 }
-                crntpage--;
+                currentpage--;
             }
 
             if (ticketlist.Tickets.Count < 1)
@@ -507,84 +506,79 @@ namespace TicketSystem
                 return;
             }
 
-            int pgcount = ticketlist.Tickets.Count / pglimit;
-            if (crntpage > pgcount)
-            {
-                args.Player.SendMessage(string.Format("Page number exceeds pages ({0}/{1})", crntpage + 1, pgcount + 1), Color.Red);
-                return;
-            }
-
-            if (ticketlist.Tickets.Count == pgcount * pglimit)
-            {
-                if (tag != "All")
-                    args.Player.SendMessage(string.Format("Tickets with tag {0} ({1}/{2}):", tag, crntpage + 1, pgcount), bluebase);
-                else if (search != "All")
-                    args.Player.SendMessage(string.Format("Tickets with keyword {0} ({1}/{2}):", search, crntpage + 1, pgcount), bluebase);
-                else
-                    args.Player.SendMessage(string.Format("All Tickets ({0}/{1}):", crntpage + 1, pgcount), bluebase);
-            }
-            else
-            {
-                if (tag != "All")
-                    args.Player.SendMessage(string.Format("Tickets with tag {0} ({1}/{2}):", tag, crntpage + 1, pgcount + 1), bluebase);
-                else if (search != "All")
-                    args.Player.SendMessage(string.Format("Tickets with keyword {0} ({1}/{2}):", search, crntpage + 1, pgcount + 1), bluebase);
-                else
-                    args.Player.SendMessage(string.Format("All Tickets ({0}/{1}):", crntpage + 1, pgcount + 1), bluebase);
-            }
-
             var ticketslist = new List<string>();
             if (tag != "All")
             {
-                for (int i = (crntpage * pglimit); (i < ((crntpage * pglimit) + pglimit)) && i < ticketlist.Tickets.Count; i++)
+                for (int i = 0; i < ticketlist.Tickets.Count; i++)
                 {
                     if ((ticketlist.Tickets[i].getResponse() == null) && (ticketlist.Tickets[i].getTag().Trim().ToLower() == tag.Trim().ToLower()))
-                    {
                         ticketslist.Add((i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
-                    }
                     else if ((ticketlist.Tickets[i].getResponse() != null) && (ticketlist.Tickets[i].getTag().Trim().ToLower() == tag.Trim().ToLower()))
                         ticketslist.Add("{RESPONSE SENT} | " + (i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
                 }
             }
             else if (search != "All")
             {
-                for (int i = (crntpage * pglimit); (i < ((crntpage * pglimit) + pglimit)) && i < ticketlist.Tickets.Count; i++)
+                for (int i = 0; i < ticketlist.Tickets.Count; i++)
                 {
                     if ((ticketlist.Tickets[i].getResponse() == null) && (ticketlist.Tickets[i].getTicket().ToLower().Contains(search.Trim())))
-                    {
                         ticketslist.Add((i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
-                    }
                     else if ((ticketlist.Tickets[i].getResponse() != null) && (ticketlist.Tickets[i].getTicket().ToLower().Contains(search.Trim())))
                         ticketslist.Add("{RESPONSE SENT} | " + (i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
                 }
             }
             else
             {
-                for (int i = (crntpage * pglimit); (i < ((crntpage * pglimit) + pglimit)) && i < ticketlist.Tickets.Count; i++)
+                for (int i = 0; i < ticketlist.Tickets.Count; i++)
                 {
                     if (ticketlist.Tickets[i].getResponse() == null)
-                    {
                         ticketslist.Add("[" + ticketlist.Tickets[i].getTag() + "] " + (i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
-                    }
                     else
                         ticketslist.Add("{RESPONSE SENT} | [" + ticketlist.Tickets[i].getTag() + "] " + (i + 1) + ". " + ticketlist.Tickets[i].getTime() + " - " + ticketlist.Tickets[i].getName() + ": " + ticketlist.Tickets[i].getTicket());
                 }
             }
-            
-            var lines = ticketslist.ToArray();
-            for (int i = 0; i < lines.Length; i += linelmt)
+
+            int pagecount = ticketslist.Count / pagelimit;
+
+            if (currentpage > pagecount)
             {
-                args.Player.SendMessage(string.Join(", ", lines, i, Math.Min(lines.Length - i, linelmt)), bluesecondarybase);
+                args.Player.SendMessage(string.Format("Page number exceeds pages ({0}/{1})", currentpage + 1, pagecount + 1), Color.Red);
+                return;
             }
 
-            if ((crntpage < pgcount) && (((crntpage * pglimit) + pglimit) < ticketlist.Tickets.Count))
+            if (ticketslist.Count == pagecount * pagelimit)
             {
                 if (tag != "All")
-                    args.Player.SendMessage(string.Format("Type \"/ticketlist {0} {1}\" for more tickets with the tag {0}.", tag, (crntpage + 2)), bluebase);
+                    args.Player.SendMessage(string.Format("Tickets with tag {0} ({1}/{2}):", tag, currentpage + 1, pagecount), bluebase);
                 else if (search != "All")
-                    args.Player.SendMessage(string.Format("Type \"/ticketlist {0} {1}\" for more tickets with the keyword {0}.", args.Parameters[0], crntpage + 2), bluebase);
+                    args.Player.SendMessage(string.Format("Tickets with keyword {0} ({1}/{2}):", search, currentpage + 1, pagecount), bluebase);
                 else
-                    args.Player.SendMessage(string.Format("Type \"/ticketlist {0}\" for more tickets.", (crntpage + 2)), bluebase);
+                    args.Player.SendMessage(string.Format("All Tickets ({0}/{1}):", currentpage + 1, pagecount), bluebase);
+            }
+            else
+            {
+                if (tag != "All")
+                    args.Player.SendMessage(string.Format("Tickets with tag {0} ({1}/{2}):", tag, currentpage + 1, pagecount + 1), bluebase);
+                else if (search != "All")
+                    args.Player.SendMessage(string.Format("Tickets with keyword {0} ({1}/{2}):", search, currentpage + 1, pagecount + 1), bluebase);
+                else
+                    args.Player.SendMessage(string.Format("All Tickets ({0}/{1}):", currentpage + 1, pagecount + 1), bluebase);
+            }
+            
+            var lines = ticketslist.ToArray();
+            for (int i = (currentpage * pagelimit); (i < ((currentpage * pagelimit) + pagelimit)) && i < lines.Length; i++)
+            {
+                args.Player.SendMessage(lines[i], bluesecondarybase);
+            }
+
+            if ((currentpage < pagecount) && (((currentpage * pagelimit) + pagelimit) < lines.Length))
+            {
+                if (tag != "All")
+                    args.Player.SendMessage(string.Format("Type \"/ticketlist {0} {1}\" for more tickets with the tag {0}.", tag, (currentpage + 2)), bluebase);
+                else if (search != "All")
+                    args.Player.SendMessage(string.Format("Type \"/ticketlist {0} {1}\" for more tickets with the keyword {0}.", args.Parameters[0], currentpage + 2), bluebase);
+                else
+                    args.Player.SendMessage(string.Format("Type \"/ticketlist {0}\" for more tickets.", (currentpage + 2)), bluebase);
             }
         }
 
