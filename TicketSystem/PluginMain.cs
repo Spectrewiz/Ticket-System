@@ -47,7 +47,7 @@ namespace TicketSystem
 
         public override Version Version
         {
-            get { return new Version(1, 2, 0); }
+            get { return new Version(1, 2, 11); }
         }
 
         public override void Initialize()
@@ -640,11 +640,11 @@ namespace TicketSystem
                                         {
                                             if (Convert.ToInt32(tickets[i]) <= 0)
                                             {
-                                                ticketerrors.Add(tickets[i] + " is not a valid ticket id.");
+                                                ticketerrors.Add(tickets[i] + " is not a valid ticket id");
                                             }
                                             if (Convert.ToInt32(tickets[i]) > ticketlist.Tickets.Count)
                                             {
-                                                ticketerrors.Add(tickets[i] + " is greater than the last ticket id (" + ticketlist.Tickets.Count + ").");
+                                                ticketerrors.Add(tickets[i] + " is greater than the last ticket id (" + ticketlist.Tickets.Count + ")");
                                             }
                                             else 
                                             { 
@@ -655,7 +655,7 @@ namespace TicketSystem
                                         }
                                         catch (FormatException)
                                         {
-                                            ticketerrors.Add(tickets[i] + " is not in the correct format.");
+                                            ticketerrors.Add(tickets[i] + " is not in the correct format");
                                         }
                                     }
                                     else
@@ -664,11 +664,11 @@ namespace TicketSystem
                                         {
                                             if ((Convert.ToInt32(tickets[i].Split('-')[1]) <= 0) || (Convert.ToInt32(tickets[i].Split('-')[0]) <= 0))
                                             {
-                                                ticketerrors.Add(tickets[i] + " is not a valid id list.");
+                                                ticketerrors.Add(tickets[i] + " is not a valid id list");
                                             }
                                             if ((Convert.ToInt32(tickets[i].Split('-')[1]) > ticketlist.Tickets.Count) || (Convert.ToInt32(tickets[i].Split('-')[0]) > ticketlist.Tickets.Count))
                                             {
-                                                ticketerrors.Add(tickets[i] + " has an id that is greater than the last ticket id (" + ticketlist.Tickets.Count + ").");
+                                                ticketerrors.Add(tickets[i] + " has an id that is greater than the last ticket id (" + ticketlist.Tickets.Count + ")");
                                             }
                                             else
                                             {
@@ -683,11 +683,11 @@ namespace TicketSystem
                                         }
                                         catch (FormatException)
                                         {
-                                            ticketerrors.Add(tickets[i] + " is not in the correct format.");
+                                            ticketerrors.Add(tickets[i] + " is not in the correct format");
                                         }
                                     }
                                 }
-                                args.Player.SendMessage("ID(s):" + string.Join(", ", ticketcompletions) + " have been cleared successfully.", bluebase);
+                                args.Player.SendMessage("ID(s): " + string.Join(", ", ticketcompletions) + " have been cleared successfully.", bluebase);
                                 if (ticketerrors.Count > 0)
                                 {
                                     args.Player.SendMessage("Errors: " + string.Join(", ", ticketerrors) + ".", Color.Red);
@@ -708,7 +708,7 @@ namespace TicketSystem
                                 Log.Error(e.Message);
                             }
                         }
-                        else { args.Player.SendMessage("Syntax: /ticketclear <idlist>", Color.Red); }
+                        else { args.Player.SendMessage("Syntax: /ticketclear id <idlist>", Color.Red); }
                         break;
                     case "tag":
                         lock (ticketlist.Tickets)
