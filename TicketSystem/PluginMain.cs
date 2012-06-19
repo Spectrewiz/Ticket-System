@@ -47,7 +47,7 @@ namespace TicketSystem
 
         public override Version Version
         {
-            get { return new Version(1, 2, 11); }
+            get { return new Version(1, 2, 12); }
         }
 
         public override void Initialize()
@@ -83,7 +83,11 @@ namespace TicketSystem
             Commands.ChatCommands.Add(new Command("TicketClear", TicketClear, "ticketclear", "ticketsclear", "ticclear", "ticsclear"));
             Commands.ChatCommands.Add(new Command("TicketBan", TicBan, "ticketban", "ticban"));
             Commands.ChatCommands.Add(new Command("TicketReload", Reload, "ticketreload", "ticreload"));
+            Setup();
+        }
 
+        public static void Setup()
+        {
             save = Path.Combine(TShock.SavePath, @"TicketSystem\Tickets.json");
             banned = Path.Combine(TShock.SavePath, @"TicketSystem\Banned.txt");
             TicketReader Reader = new TicketReader();
@@ -263,6 +267,19 @@ namespace TicketSystem
         #region Commands and whatnot
         public static void Ticket(CommandArgs args)
         {
+            if (!File.Exists(save))
+            {
+                if (Directory.Exists(Path.Combine(TShock.SavePath, "TicketSystem")))
+                {
+                    TicketReader reader = new TicketReader();
+                    ticketlist = reader.writeFile(save);
+                }
+                else
+                {
+                    Setup();
+                }
+            }
+
             var FindMe = Player.GetPlayerByName(args.Player.Name);
             if (FindMe.GetTicState() == Player.CanSubmitTickets.no)
             {
@@ -270,7 +287,13 @@ namespace TicketSystem
             }
             else if ((FindMe.GetTicState() == Player.CanSubmitTickets.yes) && (args.Parameters.Count < 1))
             {
-                args.Player.SendMessage("You must enter a message!", Color.Red);
+                args.Player.SendMessage("/Ticket <-t:[tag]/tags/responses/clearresponses> <message>:", bluebase);
+                args.Player.SendMessage("- /Ticket <message>: This submits a message with a tag marked as the default tag.", bluesecondarybase);
+                args.Player.SendMessage("- /Ticket -t:<tag> <message>: This submits a message with a defined tag. Ex: \"/ticket -t:report Bob griefed my house!\" (notice: -t:<tag> has no spaces between the colon and the specified tag).", bluesecondarybase);
+                args.Player.SendMessage("- /Ticket tags: This shows a list of the valid tags defined in the \"tags.txt\" file.", bluesecondarybase);
+                args.Player.SendMessage("- /Ticket responses: This shows a list of the tickets that were responded too, and their specific response.", bluesecondarybase);
+                args.Player.SendMessage("- /Ticket clearresponses: This clears all of the tickets you have submitted that have responses.", bluesecondarybase);
+                args.Player.SendMessage("WARNING: If you misuse the privalege of submitting tickets, you will have that privalege taken away.", Color.Red);
             }
             else if (args.Parameters[0].ToLower() == "clearresponses")
             {
@@ -321,18 +344,21 @@ namespace TicketSystem
                     }
                 }
             }
-            else if ((args.Parameters[0].ToLower() == "tags") || (args.Parameters[0].ToLower() == "tag") || (args.Parameters[0].ToLower() == "taglist"))
+            else if ((FindMe.GetTicState() == Player.CanSubmitTickets.yes) && (args.Parameters[0].ToLower() == "tags") || (args.Parameters[0].ToLower() == "tag") || (args.Parameters[0].ToLower() == "taglist"))
             {
-                string[] officialtags = File.ReadAllText(tagpath).Split('\n');
-                args.Player.SendMessage("Tags:", bluebase);
-                foreach (string officialtag in officialtags)
+                if (File.Exists(tagpath))
                 {
-                    if (officialtag.StartsWith(" ") || officialtag == null || officialtag == "")
-                        continue;
-                    args.Player.SendMessage(officialtag, bluesecondarybase);
+                    string[] officialtags = File.ReadAllText(tagpath).Split('\n');
+                    args.Player.SendMessage("Tags:", bluebase);
+                    foreach (string officialtag in officialtags)
+                    {
+                        if (officialtag.StartsWith(" ") || officialtag == null || officialtag == "")
+                            continue;
+                        args.Player.SendMessage(officialtag, bluesecondarybase);
+                    }
                 }
             }
-            else if (args.Parameters[0].ToLower().StartsWith("-tag:") || args.Parameters[0].ToLower().StartsWith("-t:"))
+            else if ((FindMe.GetTicState() == Player.CanSubmitTickets.yes) && (args.Parameters[0].ToLower().StartsWith("-tag:") || args.Parameters[0].ToLower().StartsWith("-t:")))
             {
                 string tag = args.Parameters[0].ToLower().Split(':')[1];
                 string[] officialtags = File.ReadAllText(tagpath).Split('\n');
@@ -387,7 +413,7 @@ namespace TicketSystem
                     Log.Error(e.Message);
                 }
             }
-            else
+            else if (FindMe.GetTicState() == Player.CanSubmitTickets.yes)
             {
                 try
                 {
@@ -602,8 +628,8 @@ namespace TicketSystem
                     case "all":
                         try
                         {
-                            TicketReader reader = new TicketReader();
-                            ticketlist = reader.writeFile(banned);
+                            ticketlist.Tickets.Clear();
+                            File.Delete(save);
                             args.Player.SendMessage("All of the Tickets were cleared!", bluebase);
                             Console.ForegroundColor = ConsoleColor.Red;
                             Console.WriteLine(string.Format("{0} has cleared all of the tickets.", args.Player.Name));
@@ -750,17 +776,16 @@ namespace TicketSystem
                             }
                         }
                         break;
+                    case "r":
                     case "response":
                         if (args.Parameters.Count > 1)
                         {
-                            int i = 0;
                             string respond = "";
-                            foreach (string arg in args.Parameters)
+                            for (int i = 0; i < args.Parameters.Count; i++)
                             {
-                                i++;
                                 if (i > 2)
                                 {
-                                    respond = respond + arg + " ";
+                                    respond += args.Parameters[i] + " ";
                                 }
                             }
                             int lineToRespond = 0;
@@ -772,7 +797,6 @@ namespace TicketSystem
                                 var listedplayer = Player.GetPlayerByName(playername);
                                 listedplayer.TSPlayer.SendMessage("Your ticket (" + ticket.Trim() + ") has been responded to: ", bluebase);
                                 listedplayer.TSPlayer.SendMessage(respond.Trim(), bluesecondarybase);
-                                ticketlist.Tickets.RemoveAt(lineToRespond - 1);
                                 UpdateTicketsInJSON(save);
                             }
                             catch
@@ -794,8 +818,6 @@ namespace TicketSystem
                             finally { args.Player.SendMessage("You just responded to Ticket ID: " + lineToRespond, bluebase); }
                         }
                         break;
-                    case "r":
-                        goto case "response";
                     case "help":
                         args.Player.SendMessage("Syntax: /ticketclear <all/id/tag/response/help>", bluebase);
                         args.Player.SendMessage("- /ticketclear <all>: Removes all the tickets", bluesecondarybase);
